@@ -1,11 +1,255 @@
 {% extends "shared/base.html" %}
 {% load static %}
 
-{% block breadcrumb-1-label %}Apps{% endblock %}
-{% block breadcrumb-1-href %}/standalone-apps/home{% endblock %}
-{% block breadcrumb-2-label %}bb-bot{% endblock %}
+{% block title %}Flashpoint Trading - Dashboard{% endblock %}
 
 {% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Market Overview</h5>
+                <div>
+                    <span class="text-muted small">Last updated: <span id="last-updated">-</span></span>
+                    <button class="btn btn-sm btn-outline-primary ms-2" onclick="updateMarketData()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <!-- ByBit Price Card -->
+                    <div class="col-md-6 col-lg-3">
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">ByBit BTC Price</h6>
+                                <h3 class="card-title" id="bybit-price">-</h3>
+                            </div>
+                        </div>
+                    </div>
 
+                    <!-- Valr Price Card -->
+                    <div class="col-md-6 col-lg-3">
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">Valr BTC Price</h6>
+                                <h3 class="card-title" id="valr-price-zar">-</h3>
+                                <p class="card-text text-muted" id="valr-price-usd">-</p>
+                            </div>
+                        </div>
+                    </div>
 
+                    <!-- Exchange Rate Card -->
+                    <div class="col-md-6 col-lg-3">
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">USD/ZAR Rate</h6>
+                                <h3 class="card-title" id="exchange-rate">-</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Premium Card -->
+                    <div class="col-md-6 col-lg-3">
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">Live Gross Premium</h6>
+                                <h3 class="card-title" id="premium-percentage">-</h3>
+                                <p class="card-text text-muted" id="premium-usd">-</p>
+                                <div class="mt-2">
+                                    <span id="premium-status" class="badge bg-secondary">Unknown</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Trading Section - Hidden by default, shown when premium is > 1% -->
+<div id="trading-section" class="row d-none">
+    <div class="col-12">
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">Trading Opportunity</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card mb-3 border-0 shadow-sm">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">Available Trade Volume</h6>
+                                <h3 class="card-title" id="tradable-btc">-</h3>
+                                <p class="card-text text-muted small">
+                                    Based on 10% of minimum liquidity between exchanges
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">Simulate Trade</h6>
+                                <div class="input-group mb-3">
+                                    <span class="input-group-text">ZAR</span>
+                                    <input type="number" class="form-control" id="investment-amount"
+                                        placeholder="Investment amount" value="10000">
+                                    <button class="btn btn-primary" type="button" id="simulate-button">Simulate</button>
+                                </div>
+
+                                <div id="simulation-results" class="d-none">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <tbody>
+                                                <tr>
+                                                    <th>Investment (ZAR):</th>
+                                                    <td id="sim-investment-zar">-</td>
+                                                </tr>
+                                                <tr>
+                                                    <th>Investment (USD):</th>
+                                                    <td id="sim-investment-usd">-</td>
+                                                </tr>
+                                                <tr>
+                                                    <th>BTC Amount:</th>
+                                                    <td id="sim-btc-amount">-</td>
+                                                </tr>
+                                                <tr>
+                                                    <th>ByBit Buy Price:</th>
+                                                    <td id="sim-bybit-price">-</td>
+                                                </tr>
+                                                <tr>
+                                                    <th>Valr Sell Price:</th>
+                                                    <td id="sim-valr-price">-</td>
+                                                </tr>
+                                                <tr class="table-success">
+                                                    <th>Expected Profit:</th>
+                                                    <td id="sim-profit-zar">-</td>
+                                                </tr>
+                                                <tr class="table-success">
+                                                    <th>Profit %:</th>
+                                                    <td id="sim-profit-percentage">-</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <div class="d-grid gap-2 mt-3">
+                                        <button type="button" class="btn btn-success">
+                                            <i class="fas fa-play"></i> Execute Trade
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div id="order-book-analysis" class="card border-0 shadow-sm d-none">
+                            <div class="card-body">
+                                <h6 class="card-subtitle mb-2 text-muted">Order Book Analysis</h6>
+                                <p class="small text-muted">
+                                    Orders will be allocated across these price levels to maximize profit.
+                                </p>
+
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Valr Price (ZAR)</th>
+                                                <th>Valr Price (USD)</th>
+                                                <th>ByBit Price (USD)</th>
+                                                <th>BTC Amount</th>
+                                                <th>Spread %</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="trade-levels-body">
+                                            <!-- Order book levels will be inserted here -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Trade History Section -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">Trade History</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Date/Time</th>
+                                <th>Amount (ZAR)</th>
+                                <th>BTC Volume</th>
+                                <th>ByBit Price</th>
+                                <th>Valr Price</th>
+                                <th>Premium %</th>
+                                <th>Profit (ZAR)</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="8" class="text-center">No trade history available</td>
+                            </tr>
+                            <!-- Trade history will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Flow Diagram Section -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header">
+                <h5 class="mb-0">Trading Flow Diagram</h5>
+            </div>
+            <div class="card-body">
+                <div class="text-center">
+                    <div class="mermaid">
+                        graph TD
+                        A[Start] --> B[Get ByBit BTC Price]
+                        B --> C[Get Valr BTC Price]
+                        C --> D[Determine LGP]
+                        D --> E{Premium &lt; 1%?}
+                        E -->|Yes| F[End - No Trade]
+                        E -->|No| G[Get Valr BTC Volume]
+                        G --> H[Get ByBit BTC Volume]
+                        H --> I[Determine Tradable BTC]
+                        I --> J[Get ByBit Order Book]
+                        J --> K[Get Valr Order Book]
+                        K --> L[Allocate Trade Across Order Book Levels]
+                        L --> M{Can Fill Orders with Spread &gt; 1%?}
+                        M -->|Yes| N[Execute Trade]
+                        M -->|No| F
+                        N --> O[End - Trade Complete]
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+<!-- Mermaid JS for flow diagram -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.4.0/dist/mermaid.min.js"></script>
+<script>
+    mermaid.initialize({ startOnLoad: true, theme: 'default' });
+</script>
 {% endblock %}
