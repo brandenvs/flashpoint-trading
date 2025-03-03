@@ -34,8 +34,8 @@ def get_market_data(request):
         valr_btc_usd = services.zar_to_dollar(zar_price=valr_data['btc_ticker'])
         bybit_btc_usd = bybit_data['btc_ticker']
         
-        premium = valr_btc_usd - bybit_btc_usd
-        percentage_premium = (premium / bybit_btc_usd) * 100
+        premium = Decimal(str(valr_btc_usd)) - Decimal(str(bybit_btc_usd))
+        percentage_premium = (premium / Decimal(str(bybit_btc_usd))) * Decimal('100')
         
         # Determine if premium is suitable for trading (> 1%)
         can_trade = percentage_premium >= 1
@@ -108,16 +108,13 @@ def simulate_trade(request):
         investment_amount = Decimal(request.GET.get('amount', '10000'))  # Default 10,000 ZAR
         
         # Get current market data
-        bybit_price = services.bb_btc_ticker()
-        valr_price = services.vr_btc_ticker()
+        bybit_btc_usd = services.bb_btc_ticker()
+        valr_btc_usd = services.vr_btc_ticker()
         exchange_rate = services.get_exchange_rate()
         
-        # Convert valr price to USD for comparison
-        valr_price_usd = valr_price / exchange_rate
-        
-        # Calculate premium
-        premium = valr_price_usd - bybit_price
-        percentage_premium = (premium / bybit_price) * 100
+        premium = Decimal(str(valr_btc_usd)) - Decimal(str(bybit_btc_usd))
+        percentage_premium = (premium / Decimal(str(bybit_btc_usd))) * Decimal('100')
+
         
         # Check if premium is suitable for trading
         if percentage_premium < 1:
@@ -128,10 +125,10 @@ def simulate_trade(request):
         
         # Calculate amount of BTC to buy on ByBit
         investment_usd = investment_amount / exchange_rate
-        btc_amount = investment_usd / bybit_price
+        btc_amount = investment_usd / bybit_btc_usd
         
         # Calculate expected profit
-        sell_value_zar = btc_amount * valr_price
+        sell_value_zar = btc_amount * valr_btc_usd
         expected_profit_zar = sell_value_zar - investment_amount
         expected_profit_percentage = (expected_profit_zar / investment_amount) * 100
         
@@ -141,8 +138,8 @@ def simulate_trade(request):
                 'investment_amount_zar': float(investment_amount),
                 'investment_amount_usd': float(investment_usd),
                 'btc_amount': float(btc_amount),
-                'bybit_buy_price_usd': float(bybit_price),
-                'valr_sell_price_zar': float(valr_price),
+                'bybit_buy_price_usd': float(bybit_btc_usd),
+                'valr_sell_price_zar': float(valr_btc_usd),
                 'expected_profit_zar': float(expected_profit_zar),
                 'expected_profit_percentage': float(expected_profit_percentage),
                 'exchange_rate': float(exchange_rate)

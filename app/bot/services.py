@@ -21,15 +21,18 @@ VALR_VOLUME_ENDPOINT = "/v1/public/BTCZAR/marketsummary"
 EXCHANGE_RATE_API = "https://open.er-api.com/v6/latest/USD"
 
 def handle_request_errors(func):
-    """Decorator to handle request errors"""
+    """Decorator to handle request errors with more detailed logging"""
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
         except requests.RequestException as e:
-            logger.error(f"API request failed: {e}")
+            logger.error(f"API request failed in {func.__name__}: {e}")
+            return None
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parsing error in {func.__name__}: {e}")
             return None
         except Exception as e:
-            logger.error(f"Unexpected error: {e}")
+            logger.error(f"Unexpected error in {func.__name__}: {str(e)}", exc_info=True)
             return None
     return wrapper
 
@@ -180,37 +183,16 @@ def analyze_order_books(bybit_orderbook, valr_orderbook, target_btc_volume):
         cumulative_btc = Decimal('0')
         trade_levels = []
         
-        # Create at least one sample trade level for testing
-        # In a real app, you'd remove this and only use actual profitable levels
-        if len(valr_asks_usd) > 0 and len(bybit_bids) > 0:
-            valr_price, valr_qty = valr_asks_usd[0]
-            bybit_price, bybit_qty = bybit_bids[0]
+        # Only add levels with a profitable spread (>= 1%)
+        for i in range(min(len(valr_asks_usd), len(bybit_bids))):
+            valr_price, valr_qty = valr_asks_usd[i]
+            bybit_price, bybit_qty = bybit_bids[i]
             
             # Calculate spread - valr_price is already in USD at this point
             spread = bybit_price - valr_price
             spread_percentage = (spread / valr_price) * 100
             
-            # Add a sample trade level for demonstration
-            trade_levels.append({
-                'valr_price_zar': valr_price * usd_zar_rate,
-                'valr_price_usd': valr_price,  # Add USD price for comparison
-                'bybit_price_usd': bybit_price,
-                'quantity': min(valr_qty, bybit_qty, target_btc_volume),
-                'spread_percentage': spread_percentage
-            })
-            
-            cumulative_btc = min(valr_qty, bybit_qty, target_btc_volume)
-        
-        # Now add real profitable levels if they exist
-        for i in range(min(len(valr_asks_usd), len(bybit_bids))):
-            valr_price, valr_qty = valr_asks_usd[i]
-            bybit_price, bybit_qty = bybit_bids[i]
-            
-            # Check if there's a profitable spread
-            spread = bybit_price - valr_price
-            spread_percentage = (spread / valr_price) * 100
-            
-            # If spread is positive and greater than 1%, consider this level
+            # Only include levels with a profitable spread (>= 1%)
             if spread_percentage >= 1:
                 trade_qty = min(valr_qty, bybit_qty)
                 
@@ -218,28 +200,24 @@ def analyze_order_books(bybit_orderbook, valr_orderbook, target_btc_volume):
                     # Adjust trade_qty to meet target_btc_volume exactly
                     trade_qty = target_btc_volume - cumulative_btc
                     
-                    # Only add if we didn't already add a sample level with the same price
-                    if not any(level['valr_price_zar'] == valr_price * usd_zar_rate and 
-                              level['bybit_price_usd'] == bybit_price for level in trade_levels):
-                        trade_levels.append({
-                            'valr_price_zar': valr_price * usd_zar_rate,
-                            'bybit_price_usd': bybit_price,
-                            'quantity': trade_qty,
-                            'spread_percentage': spread_percentage
-                        })
+                    trade_levels.append({
+                        'valr_price_zar': valr_price * usd_zar_rate,
+                        'valr_price_usd': valr_price,  # Add USD price for comparison
+                        'bybit_price_usd': bybit_price,
+                        'quantity': trade_qty,
+                        'spread_percentage': spread_percentage
+                    })
                     
                     cumulative_btc += trade_qty
                     break
                 else:
-                    # Only add if we didn't already add a sample level with the same price
-                    if not any(level['valr_price_zar'] == valr_price * usd_zar_rate and 
-                              level['bybit_price_usd'] == bybit_price for level in trade_levels):
-                        trade_levels.append({
-                            'valr_price_zar': valr_price * usd_zar_rate,
-                            'bybit_price_usd': bybit_price,
-                            'quantity': trade_qty,
-                            'spread_percentage': spread_percentage
-                        })
+                    trade_levels.append({
+                        'valr_price_zar': valr_price * usd_zar_rate,
+                        'valr_price_usd': valr_price,  # Add USD price for comparison
+                        'bybit_price_usd': bybit_price,
+                        'quantity': trade_qty,
+                        'spread_percentage': spread_percentage
+                    })
                     
                     cumulative_btc += trade_qty
             else:
