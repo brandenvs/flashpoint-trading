@@ -22,3 +22,6 @@ python -m pip install -r requirements.txt
 ```
 
 ```shell
+cd app
+python main.py
+```
